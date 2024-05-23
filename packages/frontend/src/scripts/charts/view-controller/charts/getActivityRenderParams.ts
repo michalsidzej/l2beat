@@ -1,3 +1,4 @@
+import { assert } from '@l2beat/shared-pure'
 import { formatTimestamp } from '../../../../utils'
 import { formatTpsWithUnit } from '../../../../utils/formatTps'
 import { RenderParams } from '../../renderer/ChartRenderer'
@@ -20,16 +21,17 @@ export function getActivityRenderParams(
     const points = dataInRange.map(([timestamp, txs, ethTxs]) => {
       const tps = getTps(txs)
       const ethTps = getTps(ethTxs)
+      assert(state.data?.type === 'activity', 'Invalid data type')
+      const isOutOfSync = timestamp > 1708671576
+
       return {
-        dashed:
-          state.data?.type === 'activity' && state.data.values.estimatedSince
-            ? timestamp > 1708671576
-            : false,
+        dashed: isOutOfSync,
         series: state.showEthereumTransactions ? [ethTps, tps] : [tps],
         data: {
           date: formatTimestamp(timestamp, { mode: 'datetime' }),
           tps,
           ethTps,
+          isOutOfSync,
         },
         milestone: state.milestones[timestamp],
       }
