@@ -29,6 +29,7 @@ export function getTvlRenderParams(
     const usd = data[1]
     const eth = data[5]
     return {
+      dashed: false,
       series: [useEth ? eth : usd],
       data: {
         date: formatTimestamp(timestamp, {

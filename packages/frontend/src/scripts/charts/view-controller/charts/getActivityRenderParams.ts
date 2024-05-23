@@ -13,7 +13,6 @@ export function getActivityRenderParams(
     if (state.data?.type !== 'activity') {
       throw new Error('Invalid data type')
     }
-
     const dataInRange = getEntriesByDays(
       state.timeRangeInDays,
       state.data.values,
@@ -22,6 +21,10 @@ export function getActivityRenderParams(
       const tps = getTps(txs)
       const ethTps = getTps(ethTxs)
       return {
+        dashed:
+          state.data?.type === 'activity' && state.data.values.estimatedSince
+            ? timestamp > 1708671576
+            : false,
         series: state.showEthereumTransactions ? [ethTps, tps] : [tps],
         data: {
           date: formatTimestamp(timestamp, { mode: 'datetime' }),
