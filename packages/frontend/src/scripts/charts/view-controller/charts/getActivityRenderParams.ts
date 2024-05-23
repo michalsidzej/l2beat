@@ -7,6 +7,8 @@ import { getEntriesByDays } from '../getEntriesByDays'
 import { ActivityData, renderActivityHover } from '../hovers'
 import { ChartControlsState } from '../types'
 
+const ESTIMATED_IMPACT_THRESHOLD = 0.1
+
 export function getActivityRenderParams(
   state: ChartControlsState,
 ): RenderParams<ActivityData> {
@@ -22,7 +24,11 @@ export function getActivityRenderParams(
       const tps = getTps(txs)
       const ethTps = getTps(ethTxs)
       assert(state.data?.type === 'activity', 'Invalid data type')
-      const isOutOfSync = timestamp > 1708671576
+      const isOutOfSync =
+        !!state.data.values.estimatedImpact &&
+        !!state.data.values.estimatedSince &&
+        state.data.values.estimatedImpact > ESTIMATED_IMPACT_THRESHOLD &&
+        timestamp > state.data.values.estimatedSince
 
       return {
         dashed: isOutOfSync,
