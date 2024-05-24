@@ -98,65 +98,9 @@ export class ChartRenderer {
   }
 
   private renderData<T>(params: RenderParams<T>) {
-    const usableHeight =
-      this.canvas.height - FIRST_LABEL_HEIGHT_PX * window.devicePixelRatio
+    const renderPaths = this.getRenderPaths(params)
 
-    const toRender = params.seriesStyle.flatMap((series, si) => {
-      const pointGroups = getPointGroups(params.points)
-      const groupsToRender: {
-        style: SeriesStyle
-        paths: {
-          path: Path2D
-          dashed: boolean
-          startX: number | undefined
-          lastX: number
-        }[]
-      } = {
-        style: series,
-        paths: [],
-      }
-      let startX: number | undefined
-      let lastX: number | undefined
-      let lastY: number | undefined
-      for (const [gi, group] of pointGroups.entries()) {
-        const prevGroup = pointGroups[gi - 1] as Point<T>[] | undefined
-        const path = new Path2D()
-
-        for (const [groupPointIndex, point] of group.entries()) {
-          const pointIndex = (prevGroup?.length ?? 0) + groupPointIndex
-          const x =
-            (pointIndex / (params.points.length - 1)) * this.canvas.width
-          const y =
-            this.canvas.height - this.getY(point.series[si]) * usableHeight
-
-          if (pointIndex === 0) {
-            path.moveTo(x, y)
-          } else if (
-            groupPointIndex === 0 &&
-            lastX !== undefined &&
-            lastY !== undefined
-          ) {
-            startX = lastX
-            path.moveTo(lastX, lastY)
-            path.lineTo(x, y)
-          } else {
-            path.lineTo(x, y)
-          }
-          lastX = x
-          lastY = y
-        }
-        assert(lastX !== undefined, 'lastX is undefined')
-        groupsToRender.paths.push({
-          path,
-          dashed: group.at(0)?.dashed ?? false,
-          startX,
-          lastX,
-        })
-      }
-      return groupsToRender
-    })
-
-    for (const { style, paths } of toRender) {
+    for (const { style, paths } of renderPaths) {
       if (style.fill) {
         for (const path of paths) {
           this.ctx.fillStyle = this.getFillStyle(style.fill, params.theme)
@@ -183,6 +127,57 @@ export class ChartRenderer {
         }
       }
     }
+  }
+
+  private getRenderPaths<T>(params: RenderParams<T>) {
+    const usableHeight =
+      this.canvas.height - FIRST_LABEL_HEIGHT_PX * window.devicePixelRatio
+
+    return params.seriesStyle.flatMap((series, si) => {
+      let startX: number | undefined
+      let lastX: number | undefined
+      let lastY: number | undefined
+
+      const pointGroups = getPointGroups(params.points)
+      return {
+        style: series,
+        paths: pointGroups.map((group, gi) => {
+          const prevGroup = gi > 0 ? pointGroups.at(gi - 1) : undefined
+          const path = new Path2D()
+
+          for (const [groupPointIndex, point] of group.entries()) {
+            const pointIndex = (prevGroup?.length ?? 0) + groupPointIndex
+            const x =
+              (pointIndex / (params.points.length - 1)) * this.canvas.width
+            const y =
+              this.canvas.height - this.getY(point.series[si]) * usableHeight
+
+            if (pointIndex === 0) {
+              path.moveTo(x, y)
+            } else if (
+              groupPointIndex === 0 &&
+              lastX !== undefined &&
+              lastY !== undefined
+            ) {
+              startX = lastX
+              path.moveTo(lastX, lastY)
+              path.lineTo(x, y)
+            } else {
+              path.lineTo(x, y)
+            }
+            lastX = x
+            lastY = y
+          }
+          assert(lastX !== undefined, 'lastX is undefined')
+          return {
+            path,
+            dashed: group.at(0)?.dashed ?? false,
+            startX,
+            lastX,
+          }
+        }),
+      }
+    })
   }
 
   private getLineDashSegments(range: [number, number]) {
