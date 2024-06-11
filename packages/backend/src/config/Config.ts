@@ -5,7 +5,6 @@ import {
   ChainId,
   PriceConfigEntry,
   ProjectId,
-  Token,
   UnixTime,
 } from '@l2beat/shared-pure'
 import { Knex } from 'knex'
@@ -21,7 +20,6 @@ export interface Config {
   readonly name: string
   readonly isReadonly: boolean
   readonly projects: Project[]
-  readonly tokens: Token[]
   readonly logger: LoggerConfig
   readonly logThrottler: LogThrottlerConfig | false
   readonly clock: ClockConfig
@@ -29,7 +27,6 @@ export interface Config {
   readonly database: DatabaseConfig
   readonly api: ApiConfig
   readonly health: HealthConfig
-  readonly tvl: TvlConfig
   readonly tvl2: Tvl2Config | false
   readonly trackedTxsConfig: TrackedTxsConfig | false
   readonly finality: FinalityConfig | false
@@ -40,8 +37,7 @@ export interface Config {
   readonly statusEnabled: boolean
   readonly chains: { name: string; chainId: ChainId }[]
   readonly flags: ResolvedFeatureFlag[]
-  readonly tvlCleanerEnabled: boolean
-  readonly verifiers: VerifiersConfig | false
+  readonly verifiers: boolean
 }
 
 export type LoggerConfig = Pick<LoggerOptions, 'logLevel'> &
@@ -77,14 +73,6 @@ export interface DatabaseConfig {
 export interface ClockConfig {
   readonly minBlockTimestamp: UnixTime
   readonly safeTimeOffsetSeconds: number
-}
-
-export interface TvlConfig {
-  readonly enabled: boolean
-  readonly errorOnUnsyncedTvl: boolean
-  readonly coingeckoApiKey: string | undefined
-  readonly ethereum: ChainTvlConfig
-  readonly modules: ChainTvlConfig[]
 }
 
 export interface Tvl2Config {
@@ -148,6 +136,7 @@ export interface ChainTvlConfig {
     readonly blockNumberProviderConfig:
       | EtherscanChainConfig
       | BlockscoutChainConfig
+      | undefined
     readonly multicallConfig: MulticallConfigEntry[]
   }
 }
@@ -190,7 +179,3 @@ export interface DiscoveryCacheChainConfig {
 
 export type UpdateMonitorChainConfig = DiscoveryChainConfig &
   DiscoveryCacheChainConfig
-
-export interface VerifiersConfig {
-  readonly blockscoutApiUrl: string
-}

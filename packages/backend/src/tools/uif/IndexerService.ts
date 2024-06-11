@@ -1,5 +1,12 @@
+import {
+  DatabaseMiddleware,
+  DatabaseTransaction,
+} from '../../peripherals/database/DatabaseMiddleware'
 import { IndexerConfigurationRepository } from './IndexerConfigurationRepository'
-import { IndexerStateRepository } from './IndexerStateRepository'
+import {
+  IndexerStateRecord,
+  IndexerStateRepository,
+} from './IndexerStateRepository'
 import { SavedConfiguration } from './multi/types'
 
 export class IndexerService {
@@ -10,13 +17,32 @@ export class IndexerService {
 
   // #region ManagedChildIndexer & ManagedMultiIndexer
 
-  async setSafeHeight(indexerId: string, safeHeight: number) {
-    await this.indexerStateRepository.addOrUpdate({ indexerId, safeHeight })
-  }
-
   async getSafeHeight(indexerId: string): Promise<number | undefined> {
     const record = await this.indexerStateRepository.findIndexerState(indexerId)
     return record?.safeHeight
+  }
+
+  async getIndexerState(
+    indexerId: string,
+  ): Promise<IndexerStateRecord | undefined> {
+    const record = await this.indexerStateRepository.findIndexerState(indexerId)
+    return record
+  }
+
+  async setSafeHeight(indexerId: string, safeHeight: number) {
+    await this.indexerStateRepository.setSafeHeight(indexerId, safeHeight)
+  }
+
+  async setInitialState(
+    indexerId: string,
+    safeHeight: number,
+    configHash?: string,
+  ) {
+    await this.indexerStateRepository.addOrUpdate({
+      indexerId,
+      safeHeight,
+      configHash,
+    })
   }
 
   // #endregion
@@ -39,10 +65,10 @@ export class IndexerService {
 
   async getSavedConfigurations<T>(
     indexerId: string,
-    decode: (blob: string) => T,
-  ): Promise<SavedConfiguration<T>[]> {
-    const configurations: (SavedConfiguration<string> & {
+  ): Promise<Omit<SavedConfiguration<T>, 'properties'>[]> {
+    const configurations: (Omit<SavedConfiguration<T>, 'properties'> & {
       indexerId?: string
+      properties?: string
     })[] =
       await this.indexerConfigurationRepository.getSavedConfigurations(
         indexerId,
@@ -51,24 +77,27 @@ export class IndexerService {
     for (const config of configurations) {
       // biome-ignore lint/performance/noDelete: not a performance problem
       delete config.indexerId
+      // biome-ignore lint/performance/noDelete: not a performance problem
+      delete config.properties
     }
 
-    return configurations.map((config) => ({
-      ...config,
-      properties: decode(config.properties),
-    }))
+    return configurations
   }
 
   async updateSavedConfigurations(
     indexerId: string,
     configurationIds: string[],
     currentHeight: number | null,
+    dbMiddleware: DatabaseMiddleware,
   ): Promise<void> {
-    await this.indexerConfigurationRepository.updateSavedConfigurations(
-      indexerId,
-      configurationIds,
-      currentHeight,
-    )
+    await dbMiddleware.add(async (trx?: DatabaseTransaction) => {
+      await this.indexerConfigurationRepository.updateSavedConfigurations(
+        indexerId,
+        configurationIds,
+        currentHeight,
+        trx,
+      )
+    })
   }
 
   async persistOnlyUsedConfigurations(

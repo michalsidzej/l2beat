@@ -34,6 +34,7 @@ export function getProjectDetails(
   manuallyVerifiedContracts: ManuallyVerifiedContracts,
   implementationChange: ImplementationChangeReportApiResponse | undefined,
   charts: ProjectDetailsCharts,
+  { layer3sTvl }: { layer3sTvl: boolean },
 ) {
   const isUpcoming = project.isUpcoming
 
@@ -47,7 +48,7 @@ export function getProjectDetails(
 
   const items: ScalingDetailsItem[] = []
 
-  if (charts.tvl) {
+  if (charts.tvl && layer3sTvl) {
     items.push({
       type: 'ChartSection',
       props: {
@@ -124,18 +125,20 @@ export function getProjectDetails(
     })
 
     /* We want state derivation to be after technology section
-       so we split the technology sections into two arrays
-       and add state derivation in between */
+        so we split the technology sections into two arrays
+        and add state derivation in between */
     const technologySection = technologySections[0]
-    items.push({
-      type: 'TechnologySection',
-      props: {
-        items: technologySection.items,
-        id: technologySection.id,
-        title: technologySection.title,
-        isUnderReview: technologySection.isUnderReview,
-      },
-    })
+    if (technologySection) {
+      items.push({
+        type: 'TechnologySection',
+        props: {
+          items: technologySection.items,
+          id: technologySection.id,
+          title: technologySection.title,
+          isUnderReview: technologySection.isUnderReview,
+        },
+      })
+    }
 
     if (project.stateDerivation) {
       items.push({

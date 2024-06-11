@@ -35,9 +35,9 @@ export const rari: Layer3 = orbitStackL3({
   ],
   nonTemplateEscrows: [
     {
-      chain: 'arbitrum',
-      includeInTotal: false,
       ...discovery.getEscrowDetails({
+        chain: 'arbitrum',
+        includeInTotal: false,
         address: EthereumAddress('0x46406c88285AD9BE2fB23D9aD96Cb578d824cAb6'),
         tokens: '*',
         description:
@@ -45,9 +45,9 @@ export const rari: Layer3 = orbitStackL3({
       }),
     },
     {
-      chain: 'arbitrum',
-      includeInTotal: false,
       ...discovery.getEscrowDetails({
+        chain: 'arbitrum',
+        includeInTotal: false,
         address: EthereumAddress('0x8bE956aB42274056ef4471BEb211b33e258b7324'),
         tokens: '*',
         description:
@@ -59,17 +59,9 @@ export const rari: Layer3 = orbitStackL3({
   rollupProxy: discovery.getContract('RollupProxy'),
   sequencerInbox: discovery.getContract('SequencerInbox'),
   nonTemplatePermissions: [
-    {
-      name: 'RollupOwner',
-      accounts: discovery.getAccessControlRolePermission(
-        'UpgradeExecutor',
-        'EXECUTOR_ROLE',
-      ),
-      description: 'EOA that can execute upgrades via the UpgradeExecutor.',
-    },
     ...discovery.getMultisigPermission(
-      'UpgradeExecutorMemberGnosisSafeL2',
-      'Can execute upgrades via the UpgradeExecutor.',
+      'Caldera Multisig',
+      'Rollup Owner: Can execute upgrades for the entire rollup system via the UpgradeExecutor.',
     ),
   ],
   milestones: [

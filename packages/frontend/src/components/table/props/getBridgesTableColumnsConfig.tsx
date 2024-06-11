@@ -1,8 +1,10 @@
 import React from 'react'
-
 import { BridgesRiskViewEntry } from '../../../pages/bridges/risk/types'
 import { BridgesSummaryViewEntry } from '../../../pages/bridges/summary/types'
+import { WarningBar } from '../../WarningBar'
 import { TokenBreakdown } from '../../breakdown/TokenBreakdown'
+import { RoundedWarningIcon } from '../../icons'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../tooltip/Tooltip'
 import { NumberCell } from '../NumberCell'
 import { RiskCell } from '../RiskCell'
 import { TypeCell } from '../TypeCell'
@@ -63,6 +65,7 @@ export function getActiveBridgesSummaryColumnsConfig() {
     {
       name: '7d Change',
       tooltip: 'Change in the total value locked as compared to a week ago.',
+      className: 'hidden 2xl:table-cell',
       align: 'right',
       getValue: (entry) =>
         entry.tvlBreakdown && (
@@ -77,8 +80,36 @@ export function getActiveBridgesSummaryColumnsConfig() {
       name: 'Tokens',
       tooltip:
         'Composition of the total value locked broken down by token type.',
+      className: 'hidden 2xl:table-cell',
       getValue: (entry) =>
-        entry.tvlBreakdown && <TokenBreakdown {...entry.tvlBreakdown} />,
+        entry.tvlBreakdown && (
+          <Tooltip>
+            <TooltipTrigger className="flex items-center gap-1">
+              <TokenBreakdown {...entry.tvlBreakdown} className="opacity-80" />
+              {entry.tvlBreakdown.warning && (
+                <RoundedWarningIcon
+                  sentiment={entry.tvlBreakdown.warningSeverity}
+                />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              {entry.tvlBreakdown.label}
+              {entry.tvlBreakdown.warning && (
+                <WarningBar
+                  className="mt-2"
+                  text={entry.tvlBreakdown.warning}
+                  icon={RoundedWarningIcon}
+                  ignoreMarkdown
+                  color={
+                    entry.tvlBreakdown.warningSeverity === 'warning'
+                      ? 'yellow'
+                      : 'red'
+                  }
+                />
+              )}
+            </TooltipContent>
+          </Tooltip>
+        ),
     },
     {
       name: 'Mkt share',
@@ -114,6 +145,7 @@ export function getBridgesRiskColumnsConfig() {
     {
       name: 'Validated by',
       tooltip: 'How are the messages sent via this bridge checked?',
+      className: 'whitespace-nowrap md:whitespace-normal',
       getValue: (entry) => <RiskCell item={entry.validatedBy} />,
       sorting: {
         getOrderValue: (project) =>
@@ -126,7 +158,7 @@ export function getBridgesRiskColumnsConfig() {
       tooltip:
         'Token bridges use escrows and mint tokens. Liquidity Networks use pools and swap tokens. Hybrid do both.',
       getValue: (entry) => (
-        <span className="sm:text-xs md:text-base">{entry.category}</span>
+        <span className="md:text-base sm:text-xs">{entry.category}</span>
       ),
       sorting: {
         getOrderValue: (project) => project.category,
@@ -146,6 +178,7 @@ export function getBridgesRiskColumnsConfig() {
     },
     {
       name: 'Destination\nToken',
+      className: 'whitespace-nowrap md:whitespace-normal',
       tooltip: 'What is the token that you receive from this bridge?',
       getValue: (entry) => <RiskCell item={entry.destinationToken} />,
       sorting: {

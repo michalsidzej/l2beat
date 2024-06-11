@@ -2,7 +2,6 @@ import { Layer3 } from '@l2beat/config'
 import compact from 'lodash/compact'
 
 import { Config } from '../../../../build/config'
-import { getFooterProps, getNavbarProps } from '../../../../components'
 import { getChartUrl } from '../../../../scripts/charts/data-controller/ChartDataController'
 import { PagesData, Wrapped } from '../../../Page'
 import { getCharts } from '../../common/getCharts'
@@ -28,14 +27,13 @@ export function getProps(
   const charts = getCharts(project, tvlApiResponse, config, activityApiResponse)
   return {
     props: {
-      navbar: getNavbarProps(config, 'scaling'),
       projectHeader: getProjectHeader(
         project,
         config,
         tvlApiResponse,
         implementationChange,
         activityApiResponse,
-        tvlBreakdownApiResponse,
+        config.features.layer3sTvl ? tvlBreakdownApiResponse : undefined,
       ),
       projectDetails: getProjectDetails(
         project,
@@ -43,8 +41,8 @@ export function getProps(
         manuallyVerifiedContracts,
         implementationChange,
         charts,
+        config.features,
       ),
-      footer: getFooterProps(config),
     },
     wrapper: {
       preloadApis: compact([

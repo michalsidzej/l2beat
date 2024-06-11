@@ -1,6 +1,7 @@
 import { Logger } from '@l2beat/backend-tools'
 import { ChildIndexer, Indexer, IndexerOptions } from '@l2beat/uif'
 
+import { DatabaseMiddleware } from '../../../peripherals/database/DatabaseMiddleware'
 import { diffConfigurations } from './diffConfigurations'
 import { toRanges } from './toRanges'
 import {
@@ -19,6 +20,7 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
   constructor(
     logger: Logger,
     parents: Indexer[],
+    private readonly createDatabaseMiddleware: () => Promise<DatabaseMiddleware>,
     configurations?: Configuration<T>[],
     options?: IndexerOptions,
   ) {
@@ -49,9 +51,12 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
    * previously with `setStoredConfigurations`. It shouldn't call
    * `setStoredConfigurations` itself.
    *
-   * @returns The configurations that were saved previously.
+   * @returns The configurations that were saved previously. Properties are omitted
+   * because they are not needed for the initialization.
    */
-  abstract multiInitialize(): Promise<SavedConfiguration<T>[]>
+  abstract multiInitialize(): Promise<
+    Omit<SavedConfiguration<T>, 'properties'>[]
+  >
 
   /**
    * Implements the main data fetching process. It is up to the indexer to
@@ -83,6 +88,7 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
     from: number,
     to: number,
     configurations: UpdateConfiguration<T>[],
+    dbMiddleware: DatabaseMiddleware,
   ): Promise<number>
 
   /**
@@ -94,7 +100,7 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
    * This method can only be called during the initialization of the indexer,
    * after `multiInitialize` returns.
    */
-  abstract removeData(configurations: RemovalConfiguration<T>[]): Promise<void>
+  abstract removeData(configurations: RemovalConfiguration[]): Promise<void>
 
   /**
    * Saves configurations that the indexer should use to sync data. The
@@ -111,6 +117,7 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
   abstract updateCurrentHeight(
     configurationIds: string[],
     currentHeight: number,
+    dbMiddleware?: DatabaseMiddleware,
   ): Promise<void>
 
   /**
@@ -124,7 +131,7 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
    */
   abstract getSafeHeight(): Promise<number | undefined>
 
-  async initialize(): Promise<number> {
+  async initialize() {
     const previouslySaved = await this.multiInitialize()
 
     this.configurations = await this.getInitialConfigurations()
@@ -137,12 +144,13 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
     const oldSafeHeight = (await this.getSafeHeight()) ?? safeHeight
 
     this.saved = new Map(toSave.map((c) => [c.id, c]))
+    // TODO: should we remove data in a transaction?
     if (toRemove.length > 0) {
       await this.removeData(toRemove)
     }
     await this.setSavedConfigurations(toSave)
 
-    return Math.min(safeHeight, oldSafeHeight)
+    return { safeHeight: Math.min(safeHeight, oldSafeHeight) }
   }
 
   async update(from: number, to: number): Promise<number> {
@@ -163,7 +171,14 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
       to: adjustedTo,
       configurations: configurations.length,
     })
-    const newHeight = await this.multiUpdate(from, adjustedTo, configurations)
+
+    const dbMiddleware = await this.createDatabaseMiddleware()
+    const newHeight = await this.multiUpdate(
+      from,
+      adjustedTo,
+      configurations,
+      dbMiddleware,
+    )
     if (newHeight < from || newHeight > adjustedTo) {
       throw new Error(
         'Programmer error, returned height must be between from and to (both inclusive).',
@@ -176,9 +191,11 @@ export abstract class MultiIndexer<T> extends ChildIndexer {
         newHeight,
       )
       if (updatedIds.length > 0) {
-        await this.updateCurrentHeight(updatedIds, newHeight)
+        await this.updateCurrentHeight(updatedIds, newHeight, dbMiddleware)
       }
     }
+
+    await dbMiddleware.execute()
 
     return newHeight
   }

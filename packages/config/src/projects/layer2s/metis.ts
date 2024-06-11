@@ -1,4 +1,9 @@
-import { EthereumAddress, ProjectId, UnixTime } from '@l2beat/shared-pure'
+import {
+  EthereumAddress,
+  ProjectId,
+  UnixTime,
+  formatSeconds,
+} from '@l2beat/shared-pure'
 
 import {
   CONTRACTS,
@@ -15,6 +20,11 @@ import { Layer2 } from './types'
 const discovery = new ProjectDiscovery('metis')
 
 const upgradeDelay = 0
+
+const CHALLENGE_PERIOD_SECONDS = discovery.getContractValue<number>(
+  'StateCommitmentChain',
+  'FRAUD_PROOF_WINDOW',
+)
 
 export const metis: Layer2 = {
   isUnderReview: false,
@@ -33,7 +43,7 @@ export const metis: Layer2 = {
     category: 'Optimium',
     links: {
       websites: ['https://metis.io'],
-      apps: [],
+      apps: ['https://bridge.metis.io'],
       documentation: ['https://docs.metis.io'],
       explorers: [
         'https://andromeda-explorer.metis.io',
@@ -46,6 +56,7 @@ export const metis: Layer2 = {
         'https://discord.com/invite/metis',
         'https://youtube.com/@Metis_L2',
         'https://t.me/MetisL2',
+        'https://instagram.com/metisl2/',
       ],
     },
     activityDataSource: 'Blockchain RPC',
@@ -75,7 +86,10 @@ export const metis: Layer2 = {
     mode: 'Transactions data',
   }),
   riskView: makeBridgeCompatible({
-    stateValidation: RISK_VIEW.STATE_NONE,
+    stateValidation: {
+      ...RISK_VIEW.STATE_NONE,
+      secondLine: `${formatSeconds(CHALLENGE_PERIOD_SECONDS)} challenge period`,
+    },
     dataAvailability: RISK_VIEW.DATA_EXTERNAL_MEMO,
     exitWindow: RISK_VIEW.EXIT_WINDOW(upgradeDelay, 0),
     sequencerFailure: {

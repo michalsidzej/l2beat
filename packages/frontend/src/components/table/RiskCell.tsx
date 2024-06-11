@@ -31,35 +31,39 @@ export function RiskCell({ item }: Props) {
   return (
     <Tooltip>
       <TooltipTrigger>
-        <div className="flex items-center gap-1">
-          <SentimentText sentiment={item.sentiment}>{item.value}</SentimentText>
-          {item.warning && (
-            <RoundedWarningIcon
-              className={cn(
-                'size-5',
-                sentimentToFillColor(item.warning.sentiment),
-              )}
-            />
-          )}
-        </div>
-
-        {item.secondLine &&
-          (item.secondSentiment ? (
-            <SentimentText
-              sentiment={item.secondSentiment}
-              className="block text-xs leading-none"
-            >
-              {item.secondLine}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1">
+            <SentimentText sentiment={item.sentiment}>
+              {item.value}
             </SentimentText>
-          ) : (
-            <span
-              className={
-                'block text-xs leading-none text-gray-550 dark:text-gray-500'
-              }
-            >
-              {item.secondLine}
-            </span>
-          ))}
+            {item.warning && (
+              <RoundedWarningIcon
+                className={cn(
+                  'size-5',
+                  sentimentToFillColor(item.warning.sentiment),
+                )}
+              />
+            )}
+          </div>
+
+          {item.secondLine &&
+            (item.secondSentiment ? (
+              <SentimentText
+                sentiment={item.secondSentiment}
+                className="block text-xs leading-none"
+              >
+                {item.secondLine}
+              </SentimentText>
+            ) : (
+              <span
+                className={
+                  '-mt-1 mb-1 text-2xs text-gray-550 md:m-0 dark:text-gray-500 md:text-xs md:leading-none'
+                }
+              >
+                {item.secondLine}
+              </span>
+            ))}
+        </div>
       </TooltipTrigger>
       <TooltipContent>
         {item.warning && (
@@ -68,6 +72,7 @@ export function RiskCell({ item }: Props) {
             text={item.warning.value}
             icon={RoundedWarningIcon}
             color={item.warning.sentiment === 'bad' ? 'red' : 'yellow'}
+            ignoreMarkdown
           />
         )}
         {item.description !== '' ? item.description : null}

@@ -36,7 +36,7 @@ import { subtractOne } from '../../../common/assessCount'
 import { ProjectDiscovery } from '../../../discovery/ProjectDiscovery'
 import { HARDCODED } from '../../../discovery/values/hardcoded'
 import { type Layer3, type Layer3Display } from '../../layer3s/types'
-import { OPTIMISTIC_ROLLUP_STATE_UPDATES_WARNING } from '../common'
+import { OPTIMISTIC_ROLLUP_STATE_UPDATES_WARNING, StageConfig } from '../common'
 import { getStage } from '../common/stages/getStage'
 import {
   type Layer2,
@@ -81,7 +81,9 @@ export interface OpStackConfigCommon {
   knowledgeNuggets?: KnowledgeNugget[]
   roleOverrides?: Record<string, string>
   nonTemplatePermissions?: ScalingProjectPermission[]
+  nonTemplateNativePermissions?: ScalingProjectPermission[]
   nonTemplateContracts?: ScalingProjectContract[]
+  nonTemplateNativeContracts?: ScalingProjectContract[]
   nonTemplateEscrows?: ScalingProjectEscrow[]
   nonTemplateOptimismPortalEscrowTokens?: string[]
   nonTemplateTrackedTxs?: Layer2TxConfig[]
@@ -92,6 +94,8 @@ export interface OpStackConfigCommon {
   upgradesAndGovernance?: string
   hasProperSecurityCouncil?: boolean
   usesBlobs?: boolean
+  isUnderReview?: boolean
+  stage?: StageConfig
 }
 
 export interface OpStackConfigL2 extends OpStackConfigCommon {
@@ -109,13 +113,7 @@ export function opStackCommon(
   templateVars: OpStackConfigCommon,
 ): Omit<
   Layer2,
-  | 'type'
-  | 'display'
-  | 'config'
-  | 'isArchived'
-  | 'stage'
-  | 'chainConfig'
-  | 'riskView'
+  'type' | 'display' | 'config' | 'isArchived' | 'stage' | 'riskView'
 > {
   const sequencerInbox = EthereumAddress(
     templateVars.discovery.getContractValue('SystemConfig', 'sequencerInbox'),
@@ -147,6 +145,7 @@ export function opStackCommon(
 
   return {
     id: ProjectId(templateVars.discovery.projectName),
+    isUnderReview: templateVars.isUnderReview ?? false,
     technology: {
       stateCorrectness: templateVars.nonTemplateTechnology
         ?.stateCorrectness ?? {
@@ -295,12 +294,14 @@ export function opStackCommon(
       }),
       ...(templateVars.nonTemplatePermissions ?? []),
     ],
+    nativePermissions: templateVars.nonTemplateNativePermissions,
     contracts: {
       addresses: [
         ...templateVars.discovery.getOpStackContractDetails(upgradeability),
         ...(templateVars.nonTemplateContracts ?? []),
       ],
       risks: [CONTRACTS.UPGRADE_NO_DELAY_RISK],
+      nativeAddresses: templateVars.nonTemplateNativeContracts,
     },
     milestones: templateVars.milestones ?? [],
     knowledgeNuggets: [
@@ -409,6 +410,7 @@ export function opStackL2(templateVars: OpStackConfigL2): Layer2 {
               finalizationPeriod: FINALIZATION_PERIOD_SECONDS,
             },
     },
+    chainConfig: templateVars.chainConfig,
     config: {
       associatedTokens: templateVars.associatedTokens,
       escrows: [
@@ -476,7 +478,6 @@ export function opStackL2(templateVars: OpStackConfigL2): Layer2 {
             ],
       finality: daProvider !== undefined ? undefined : templateVars.finality,
     },
-    chainConfig: templateVars.chainConfig,
     dataAvailability:
       daProvider !== undefined
         ? addSentimentToDataAvailability({
@@ -496,7 +497,12 @@ export function opStackL2(templateVars: OpStackConfigL2): Layer2 {
             mode: 'Transactions data (compressed)',
           }),
     riskView: makeBridgeCompatible({
-      stateValidation: RISK_VIEW.STATE_NONE,
+      stateValidation: {
+        ...RISK_VIEW.STATE_NONE,
+        secondLine: `${formatSeconds(
+          FINALIZATION_PERIOD_SECONDS,
+        )} challenge period`,
+      },
       dataAvailability: {
         ...riskViewDA(daProvider),
         sources: [
@@ -547,40 +553,42 @@ export function opStackL2(templateVars: OpStackConfigL2): Layer2 {
       validatedBy: RISK_VIEW.VALIDATED_BY_ETHEREUM,
     }),
     stage:
-      daProvider !== undefined || templateVars.isNodeAvailable === undefined
-        ? {
-            stage: 'NotApplicable',
-          }
-        : getStage(
-            {
-              stage0: {
-                callsItselfRollup: true,
-                stateRootsPostedToL1: true,
-                dataAvailabilityOnL1: true,
-                rollupNodeSourceAvailable: templateVars.isNodeAvailable,
+      templateVars.stage === undefined
+        ? daProvider !== undefined || templateVars.isNodeAvailable === undefined
+          ? {
+              stage: 'NotApplicable',
+            }
+          : getStage(
+              {
+                stage0: {
+                  callsItselfRollup: true,
+                  stateRootsPostedToL1: true,
+                  dataAvailabilityOnL1: true,
+                  rollupNodeSourceAvailable: templateVars.isNodeAvailable,
+                },
+                stage1: {
+                  stateVerificationOnL1: false,
+                  fraudProofSystemAtLeast5Outsiders: null,
+                  usersHave7DaysToExit: false,
+                  usersCanExitWithoutCooperation: false,
+                  securityCouncilProperlySetUp:
+                    templateVars.hasProperSecurityCouncil ?? null,
+                },
+                stage2: {
+                  proofSystemOverriddenOnlyInCaseOfABug: null,
+                  fraudProofSystemIsPermissionless: null,
+                  delayWith30DExitWindow: false,
+                },
               },
-              stage1: {
-                stateVerificationOnL1: false,
-                fraudProofSystemAtLeast5Outsiders: null,
-                usersHave7DaysToExit: false,
-                usersCanExitWithoutCooperation: false,
-                securityCouncilProperlySetUp:
-                  templateVars.hasProperSecurityCouncil ?? null,
+              {
+                rollupNodeLink:
+                  templateVars.isNodeAvailable === true
+                    ? templateVars.nodeSourceLink ??
+                      'https://github.com/ethereum-optimism/optimism/tree/develop/op-node'
+                    : '',
               },
-              stage2: {
-                proofSystemOverriddenOnlyInCaseOfABug: null,
-                fraudProofSystemIsPermissionless: null,
-                delayWith30DExitWindow: false,
-              },
-            },
-            {
-              rollupNodeLink:
-                templateVars.isNodeAvailable === true
-                  ? templateVars.nodeSourceLink ??
-                    'https://github.com/ethereum-optimism/optimism/tree/develop/op-node'
-                  : '',
-            },
-          ),
+            )
+        : templateVars.stage,
     stateDerivation: templateVars.stateDerivation,
     upgradesAndGovernance: templateVars.upgradesAndGovernance,
   }
@@ -706,9 +714,9 @@ export function opStackL3(templateVars: OpStackConfigL3): Layer3 {
       associatedTokens: templateVars.associatedTokens,
       escrows: [
         {
-          chain: templateVars.hostChain,
-          includeInTotal: false,
           ...templateVars.discovery.getEscrowDetails({
+            chain: templateVars.hostChain,
+            includeInTotal: false,
             address: portal.address,
             tokens: optimismPortalTokens,
             description: `Main entry point for users depositing ${optimismPortalTokens.join(
@@ -718,9 +726,9 @@ export function opStackL3(templateVars: OpStackConfigL3): Layer3 {
           }),
         },
         {
-          chain: templateVars.hostChain,
-          includeInTotal: false,
           ...templateVars.discovery.getEscrowDetails({
+            chain: templateVars.hostChain,
+            includeInTotal: false,
             address: l1StandardBridgeEscrow,
             tokens: templateVars.l1StandardBridgeTokens ?? '*',
             description:
